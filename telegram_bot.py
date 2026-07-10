@@ -3108,27 +3108,67 @@ def run_flask():
 if os.environ.get('RENDER'):
     threading.Thread(target=run_flask, daemon=True).start()
 # ============================================
+# ============================================
+# راه‌اندازی ربات در پس‌زمینه (برای Gunicorn)
+# ============================================
+def start_bot_in_background():
+    """ربات را در یک Thread جداگانه با Event Loop مناسب اجرا می‌کند."""
+    def run_bot():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(main())
+        except Exception as e:
+            print(f"Error in bot thread: {e}", flush=True)
+        finally:
+            loop.close()
+    
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    print("ربات در پس‌زمینه شروع به کار کرد.", flush=True)
+
+# اگر در محیط Render هستیم یا با gunicorn اجرا میشیم، ربات رو استارت کن
+if os.environ.get('RENDER') or 'gunicorn' in sys.modules:
+    start_bot_in_background()
+
+# ============================================
+# Flask برای Render (باز کردن پورت)
+# ============================================
+from flask import Flask
+import threading
+import os
+
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def health_check():
+    return "ربات روشن است!", 200
+
+@flask_app.route('/health')
+def health():
+    return "OK", 200
+
+def run_flask():
+    port = int(os.environ.get('PORT', 8000))
+    flask_app.run(host='0.0.0.0', port=port)
+
+# ============================================
+# نقطه ورود برای اجرای مستقیم (python telegram_bot.py)
+# ============================================
 if __name__ == "__main__":
     import time
-    import os
     
-    # ============================================
     # اگر در Render هستیم، ۳۰ ثانیه صبر کن تا محدودیت تلگرام برطرف بشه
-    # ============================================
     if os.environ.get('RENDER'):
         print("صبر ۳۰ ثانیه برای جلوگیری از FloodWait...", flush=True)
         time.sleep(30)
     
-    # ============================================
     # Flask را در یک Thread جداگانه اجرا کن
-    # ============================================
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     print("Flask در Thread جداگانه اجرا شد.", flush=True)
     
-    # ============================================
     # ربات را در Main Thread اجرا کن
-    # ============================================
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
