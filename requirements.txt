@@ -6,3 +6,5 @@ requests>=2.32.3,<3
 flask==3.0.3
 gunicorn==22.0.0
 python-telegram-bot==20.8
+rubpy==7.3.4
+requests==2.34.2
