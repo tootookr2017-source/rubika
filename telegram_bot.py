@@ -3109,4 +3109,14 @@ if os.environ.get('RENDER'):
     threading.Thread(target=run_flask, daemon=True).start()
 # ============================================
 if __name__ == "__main__":
-    asyncio.run(main())
+    # تابعی که ربات را با Event Loop مناسب اجرا کند
+    def run_bot():
+        asyncio.run(main())
+    
+    # ربات را در یک Thread جداگانه اجرا کن
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    print("ربات در Thread جداگانه اجرا شد.", flush=True)
+    
+    # Flask را در Thread اصلی اجرا کن تا پورت باز بماند
+    run_flask()
