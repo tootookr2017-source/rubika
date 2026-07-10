@@ -20,16 +20,20 @@ logger = logging.getLogger(__name__)
 # ========== متغیرهای محیطی ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("OWNER_TELEGRAM_ID", 0))
-API_ID = int(os.getenv("API_ID", 0))  # دیگر استفاده نمی‌شود، ولی برای سازگاری نگه داشتیم
+API_ID = int(os.getenv("API_ID", 0))
 API_HASH = os.getenv("API_HASH", "")
-ALLOWED_USERS_FILE = "/data/allowed_users.json"
-DOWNLOAD_DIR = Path("/data/downloads")
-SESSION_DIR = Path("/data/sessions")
-QUEUE_FILE = Path("/data/queue/tasks.jsonl")
-PROCESSING_FILE = Path("/data/queue/processing.json")
-FAILED_FILE = Path("/data/queue/failed.jsonl")
+ALLOWED_USERS_FILE = "/tmp/walrus/allowed_users.json"  # تغییر مسیر
+
+# ========== مسیرهای ذخیره‌سازی (با استفاده از /tmp) ==========
+BASE_DIR = Path("/tmp/walrus")
+DOWNLOAD_DIR = BASE_DIR / "downloads"
+SESSION_DIR = BASE_DIR / "sessions"
+QUEUE_FILE = BASE_DIR / "queue/tasks.jsonl"
+PROCESSING_FILE = BASE_DIR / "queue/processing.json"
+FAILED_FILE = BASE_DIR / "queue/failed.jsonl"
 
 # ایجاد دایرکتوری‌ها
+BASE_DIR.mkdir(parents=True, exist_ok=True)
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 SESSION_DIR.mkdir(parents=True, exist_ok=True)
 QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -97,7 +101,6 @@ def is_cancelled(task_id: str) -> bool:
 
 # ========== آپلود به روبیکا ==========
 async def upload_to_rubika(file_path: str, file_name: str, session_name: str, target: str = "me"):
-    """آپلود فایل به روبیکا با استفاده از rubpy"""
     try:
         client = RubikaClient(name=session_name)
         await client.__aenter__()
@@ -125,7 +128,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_user_allowed(user_id):
         await update.message.reply_text("⛔ شما دسترسی ندارید. درخواست دسترسی برای ادمین ارسال شد.")
-        # ارسال درخواست به ادمین
         await context.bot.send_message(
             ADMIN_ID,
             f"👤 کاربر [{user_id}](tg://user?id={user_id}) درخواست دسترسی داده است."
@@ -168,10 +170,9 @@ async def cleanup_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ شما دسترسی ندارید.")
         return
     
-    # پاک‌سازی فایل‌های قدیمی
     count = 0
     for file in DOWNLOAD_DIR.iterdir():
-        if file.is_file() and time.time() - file.stat().st_mtime > 86400:  # 24 ساعت
+        if file.is_file() and time.time() - file.stat().st_mtime > 86400:
             file.unlink()
             count += 1
     
@@ -218,7 +219,6 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ نوع فایل پشتیبانی نمی‌شود.")
         return
     
-    # دانلود فایل با python-telegram-bot
     status_msg = await update.message.reply_text(f"⬇️ در حال دانلود: {file_name}...")
     try:
         file = await context.bot.get_file(file_id)
@@ -227,7 +227,6 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await status_msg.edit_text(f"✅ دانلود شد: {file_name}\n⏳ در حال آپلود به روبیکا...")
         
-        # اضافه کردن به صف
         task = {
             "task_id": uuid.uuid4().hex[:8],
             "file_name": file_name,
@@ -239,7 +238,6 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await status_msg.edit_text(f"✅ فایل {file_name} به صف اضافه شد. موقعیت صف: {queue_size()}")
         
-        # پردازش صف
         await process_queue(context)
         
     except Exception as e:
@@ -247,9 +245,8 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_msg.edit_text(f"❌ خطا در دانلود: {str(e)}")
 
 async def process_queue(context: ContextTypes.DEFAULT_TYPE):
-    """پردازش صف آپلود"""
     if load_processing():
-        return  # در حال پردازش
+        return
     
     task = pop_first_task()
     if not task:
@@ -257,7 +254,6 @@ async def process_queue(context: ContextTypes.DEFAULT_TYPE):
     
     save_processing(task)
     try:
-        # آپلود به روبیکا
         session_name = str(SESSION_DIR / "rubika_session.rp")
         success = await upload_to_rubika(
             task["path"],
@@ -285,12 +281,10 @@ async def process_queue(context: ContextTypes.DEFAULT_TYPE):
         )
     finally:
         clear_processing()
-        # پاک کردن فایل
         try:
             Path(task["path"]).unlink(missing_ok=True)
         except:
             pass
-        # پردازش بعدی
         await process_queue(context)
 
 # ========== Flask ==========
@@ -309,7 +303,6 @@ def run_flask():
 def run_bot():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
-    # هندلرها
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status_handler))
     app.add_handler(CommandHandler("transfers", transfers_handler))
@@ -320,7 +313,6 @@ def run_bot():
         handle_file
     ))
     
-    # دکمه‌های منو (رسیدگی به متن دکمه‌ها)
     async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         if text == "📊 Status":
@@ -340,10 +332,8 @@ def run_bot():
     app.run_polling()
 
 if __name__ == "__main__":
-    # Flask در Thread جداگانه
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     logger.info("Flask در Thread جداگانه اجرا شد.")
     
-    # ربات در Main Thread
     run_bot()
