@@ -3084,6 +3084,29 @@ async def reject_callback(client: Client, callback_query: CallbackQuery):
     await client.send_message(user_id, "😞 درخواست دسترسی شما رد شد.")
     await callback_query.answer()
 
+# ============================================
+# برای Render Web Service (باز کردن پورت)
+# ============================================
+from flask import Flask
+import threading
 
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def health_check():
+    return "ربات روشن است!", 200
+
+@flask_app.route('/health')
+def health():
+    return "OK", 200
+
+def run_flask():
+    port = int(os.environ.get('PORT', 8000))
+    flask_app.run(host='0.0.0.0', port=port)
+
+# اگر در Render هستیم، فلاسک رو در یک ترد جداگانه اجرا کن
+if os.environ.get('RENDER'):
+    threading.Thread(target=run_flask, daemon=True).start()
+# ============================================
 if __name__ == "__main__":
     asyncio.run(main())
