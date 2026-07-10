@@ -3109,14 +3109,13 @@ if os.environ.get('RENDER'):
     threading.Thread(target=run_flask, daemon=True).start()
 # ============================================
 if __name__ == "__main__":
-    # تابعی که ربات را با Event Loop مناسب اجرا کند
-    def run_bot():
+    # Flask را در یک Thread جداگانه اجرا کن تا پورت باز بماند
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    print("Flask در Thread جداگانه اجرا شد.", flush=True)
+    
+    # ربات را در Main Thread اجرا کن (اینجا مشکل signal حل می‌شود)
+    try:
         asyncio.run(main())
-    
-    # ربات را در یک Thread جداگانه اجرا کن
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-    print("ربات در Thread جداگانه اجرا شد.", flush=True)
-    
-    # Flask را در Thread اصلی اجرا کن تا پورت باز بماند
-    run_flask()
+    except KeyboardInterrupt:
+        print("ربات متوقف شد.", flush=True)
