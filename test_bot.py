@@ -4,6 +4,7 @@ from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
+# ========== Flask ==========
 flask_app = Flask(__name__)
 
 @flask_app.route('/')
@@ -15,6 +16,7 @@ def run_flask():
     port = int(os.environ.get('PORT', 8000))
     flask_app.run(host='0.0.0.0', port=port)
 
+# ========== ربات ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -31,7 +33,11 @@ def run_bot():
     print("🤖 ربات روشن شد...")
     app.run_polling()
 
+# ========== اجرا ==========
 if __name__ == "__main__":
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-    run_flask()
+    # Flask را در Thread جداگانه اجرا کن (پورت باز می‌شود)
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    
+    # ربات را در Main Thread اجرا کن (اینجا asyncio کار می‌کند)
+    run_bot()
