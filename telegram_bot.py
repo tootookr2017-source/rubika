@@ -14,7 +14,13 @@ import json
 from html import escape
 from pathlib import Path
 from urllib.parse import unquote, urlparse
-
+# ========== راه‌حل برای پایتون ۳.۱۴ ==========
+if sys.version_info >= (3, 14):
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+# ============================================
 from dotenv import load_dotenv
 from pyrogram import Client, enums, filters, idle
 from pyrogram.types import (
