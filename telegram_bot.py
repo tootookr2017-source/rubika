@@ -3109,12 +3109,26 @@ if os.environ.get('RENDER'):
     threading.Thread(target=run_flask, daemon=True).start()
 # ============================================
 if __name__ == "__main__":
-    # Flask را در یک Thread جداگانه اجرا کن تا پورت باز بماند
+    import time
+    import os
+    
+    # ============================================
+    # اگر در Render هستیم، ۳۰ ثانیه صبر کن تا محدودیت تلگرام برطرف بشه
+    # ============================================
+    if os.environ.get('RENDER'):
+        print("صبر ۳۰ ثانیه برای جلوگیری از FloodWait...", flush=True)
+        time.sleep(30)
+    
+    # ============================================
+    # Flask را در یک Thread جداگانه اجرا کن
+    # ============================================
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     print("Flask در Thread جداگانه اجرا شد.", flush=True)
     
-    # ربات را در Main Thread اجرا کن (اینجا مشکل signal حل می‌شود)
+    # ============================================
+    # ربات را در Main Thread اجرا کن
+    # ============================================
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
