@@ -3061,10 +3061,9 @@ async def start_telegram_client() -> None:
 async def main() -> None:
     await start_telegram_client()
     asyncio.create_task(worker_telegram_event_loop())
-    await idle()
-    print("Telegram bot stopping", flush=True)
-    await app.stop()
-
+    # به جای await idle()، یک حلقه بی‌نهایت ساده
+    while True:
+        await asyncio.sleep(1)
 
 @app.on_callback_query(filters.regex(r"^approve_\d+$"))
 async def approve_callback(client: Client, callback_query: CallbackQuery):
