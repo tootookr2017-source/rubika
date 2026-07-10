@@ -3080,4 +3080,4 @@ async def reject_callback(client: Client, callback_query: CallbackQuery):
 
 
 if __name__ == "__main__":
-    app.run(main())
+    asyncio.run(main())
